@@ -1,6 +1,8 @@
 package doggytalents.block;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 import javax.annotation.Nullable;
 
@@ -8,9 +10,16 @@ import doggytalents.ModCreativeTabs;
 import doggytalents.api.inferface.IBedMaterial;
 import doggytalents.client.model.block.IStateParticleModel;
 import doggytalents.client.renderer.particle.ParticleCustomDigging;
+import doggytalents.entity.EntityDog;
+import doggytalents.lib.ConfigValues;
 import doggytalents.network.PacketDispatcher;
 import doggytalents.network.client.CustomParticleMessage;
+import doggytalents.storage.DogRespawnData;
+import doggytalents.storage.DogRespawnStorage;
 import doggytalents.tileentity.TileEntityDogBed;
+import doggytalents.util.EntityUtil;
+import doggytalents.util.NBTUtil;
+import doggytalents.util.WorldUtil;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockContainer;
 import net.minecraft.block.SoundType;
@@ -29,24 +38,25 @@ import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.BlockRenderLayer;
-import net.minecraft.util.EnumBlockRenderType;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.Mirror;
-import net.minecraft.util.NonNullList;
-import net.minecraft.util.Rotation;
+import net.minecraft.util.*;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.world.DimensionType;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.property.ExtendedBlockState;
 import net.minecraftforge.common.property.IExtendedBlockState;
 import net.minecraftforge.common.property.IUnlistedProperty;
+import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
@@ -105,8 +115,20 @@ public class BlockDogBed extends BlockContainer {
             NBTTagCompound tag = stack.getTagCompound().getCompoundTag("doggytalents");
             IBedMaterial casingId = DogBedRegistry.CASINGS.get(tag.getString("casingId"));
             IBedMaterial beddingId = DogBedRegistry.BEDDINGS.get(tag.getString("beddingId"));
+            UUID ownerId = NBTUtil.getUniqueId(tag, "ownerId");
+            ITextComponent name = NBTUtil.getTextComponent(tag, "name");
+            ITextComponent ownerName = NBTUtil.getTextComponent(tag, "ownerName");
             tooltip.add(casingId.getTooltip().getFormattedText());
-            tooltip.add(beddingId.getTooltip().getFormattedText());    
+            tooltip.add(beddingId.getTooltip().getFormattedText());
+            if (ownerId != null && (flagIn.isAdvanced())) {
+            tooltip.add(ownerId.toString());
+            }
+            if (name != null) {
+                tooltip.add(name.getFormattedText());
+            }
+            if (ownerName != null) {
+                tooltip.add(ownerName.getFormattedText());
+            }
         }
     }
     
@@ -116,20 +138,26 @@ public class BlockDogBed extends BlockContainer {
             for(IBedMaterial casingId : DogBedRegistry.CASINGS.getKeys())
                 items.add(DogBedRegistry.createItemStack(casingId, beddingId));
     }
-    
+
     @Override
     public void onBlockPlacedBy(World worldIn, BlockPos pos, IBlockState state, EntityLivingBase placer, ItemStack stack) {
         worldIn.setBlockState(pos, state.withProperty(FACING, placer.getHorizontalFacing().getOpposite()), 2);
-        
+
         if(stack != null && stack.hasTagCompound() && stack.getTagCompound().hasKey("doggytalents")) {
             NBTTagCompound tag = stack.getTagCompound().getCompoundTag("doggytalents");
-            
+
             TileEntity tile = worldIn.getTileEntity(pos);
-            
+
             if(tile instanceof TileEntityDogBed) {
                 TileEntityDogBed dogBed = (TileEntityDogBed)tile;
                 dogBed.setBeddingId(DogBedRegistry.BEDDINGS.get(tag.getString("beddingId")));
                 dogBed.setCasingId(DogBedRegistry.CASINGS.get(tag.getString("casingId")));
+                ITextComponent name = NBTUtil.getTextComponent(tag, "name");
+                ITextComponent ownerName = NBTUtil.getTextComponent(tag, "ownerName");
+                UUID ownerId = NBTUtil.getUniqueId(tag, "ownerId");
+                dogBed.setBedName(name);
+                dogBed.setOwnerName(ownerName);
+                dogBed.setOwner(ownerId);
             }
         }
     }
@@ -352,5 +380,80 @@ public class BlockDogBed extends BlockContainer {
         CustomParticleMessage packet = new CustomParticleMessage(world, pos, entity.posX, entity.posY, entity.posZ, numberOfParticles, 0.15F);
         PacketDispatcher.sendToAllAround(packet, world.provider.getDimension(), entity.posX, entity.posY, entity.posZ, 32.0D);
         return true;
+    }
+
+    @Deprecated
+    public boolean onBlockActivated(World worldIn, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand handIn, EnumFacing facing, float hitX, float hitY, float hitZ) {
+        if (worldIn.isRemote || !ConfigValues.DOG_RESPAWN) {
+            return true;
+        } else if (handIn == EnumHand.MAIN_HAND) {
+            TileEntityDogBed dogBedTileEntity = WorldUtil.getTileEntity(worldIn, pos, TileEntityDogBed.class);
+
+            if (dogBedTileEntity != null) {
+
+/*                ItemStack stack = player.getHeldItem(handIn);
+                if (stack.getItem() == Items.NAME_TAG && stack.hasDisplayName()) {
+                    dogBedTileEntity.setBedName(stack.getTextComponent());
+
+                    if (!player.capabilities.isCreativeMode) {
+                        stack.shrink(1);
+                    }
+
+                    worldIn.notifyBlockUpdate(pos, state, state, Constants.BlockFlags.DEFAULT);
+                    return true;
+                } else*/
+                if (player.isSneaking() && dogBedTileEntity.getOwnerUUID() == null) {
+                    List<EntityDog> dogs = worldIn.getEntitiesWithinAABB(EntityDog.class, new AxisAlignedBB(pos).grow(10D), (dog) -> dog.isEntityAlive() && dog.isOwner(player));
+                    Collections.sort(dogs, new EntityUtil.Sorter(new Vec3d(pos.getX(), pos.getY(), pos.getZ())));
+
+                    EntityDog closestStanding = null;
+                    EntityDog closestSitting = null;
+                    for (EntityDog dog : dogs) {
+                        if (closestSitting != null && closestSitting != null) {
+                            break;
+                        }
+
+                        if (closestSitting == null && dog.isSitting()) {
+                            closestSitting = dog;
+                        } else if (closestStanding == null && !dog.isSitting()) {
+                            closestStanding = dog;
+                        }
+                    }
+
+                    EntityDog closests = closestStanding != null ? closestStanding : closestSitting;
+                    if (closests != null) {
+                        closests.setTargetBlock(pos);
+/*                        dogBedTileEntity.setOwner(closests);
+                        closests.setBedPos(DimensionType.getById(closests.dimension), pos);
+                        closests.getAISit().setSitting(true);
+                        closests.setLocationAndAngles(pos.getX(),pos.up().getY(),pos.getZ(),closests.rotationYaw, closests.rotationPitch);
+                        worldIn.setEntityState(closests,(byte) 7);*/
+                        String name = closests.getName();
+                        player.sendMessage(new TextComponentTranslation("block.doggytalents.dog_bed.owner.has_set", name != null ? name : "someone"));
+                    }
+                } else if (dogBedTileEntity.getOwnerUUID() != null) {
+                    DogRespawnData storage = DogRespawnStorage.get(worldIn).remove(dogBedTileEntity.getOwnerUUID());
+
+                    if (storage != null) {
+                        EntityDog dog = storage.respawn(worldIn, player, pos.up());
+
+                        dogBedTileEntity.setOwner(dog);
+                        dog.setBedPos(DimensionType.getById(dog.dimension), pos);
+                        player.sendMessage(new TextComponentTranslation("block.doggytalents.dog_bed.dog_has_respawn"));
+                        return true;
+                    } else {
+                        ITextComponent name = dogBedTileEntity.getOwnerName();
+                        player.sendMessage(new TextComponentTranslation("block.doggytalents.dog_bed.owner", name != null ? name : "someone"));
+                        return false;
+                    }
+                } else {
+                    player.sendMessage(new TextComponentTranslation("block.doggytalents.dog_bed.set_owner_help"));
+                    return true;
+                }
+            }
+            return true;
+        }
+
+        return false;
     }
 }

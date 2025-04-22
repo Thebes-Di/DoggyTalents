@@ -16,6 +16,22 @@ public class ConfigValues {
     public static boolean DOG_WHINE_WHEN_HUNGER_LOW;
     public static boolean PUPS_GET_PARENT_LEVELS;
     public static boolean MOD_BED_STUFF;
+    public static double TALENT_RESCUE_HEAL_BASE;
+    public static int TALENT_RESCUE_HUNGER_COST;
+    public static int TALENT_RESCUE_HUNGER_COST_5;
+    public static int TALENT_ROAR_EFFECT_DURATION_BASE;
+    public static int TALENT_ROAR_EFFECT_DURATION_LEVEL_UP;
+    public static int TALENT_ROAR_EFFECT_DURATION_LEVEL_UP_5;
+    public static Double TALENT_ROAR_DAMAGE;
+    public static Double TALENT_ROAR_DAMAGE_LEVEL_5_MULTIPLIER;
+    public static int TALENT_ROAR_COOLDOWN;
+    public static int TALENT_ROAR_COOLDOWN_LEVEL_5;
+    public static int TALENT_ROAR_RANGE;
+    public static int TALENT_ROAR_HUNGER_COST;
+    public static int TALENT_ROAR_HUNGER_COST_5;
+    public static boolean TALENT_ROAR_UNLIMITED_HIGH;
+    public static boolean TALENT_ROAR_BYPASSES_ARMOR;
+    public static boolean DOG_RESPAWN;
     
     //Client Only
     public static boolean DIRE_PARTICLES;

@@ -31,20 +31,7 @@ import doggytalents.api.inferface.IDogItem;
 import doggytalents.api.inferface.IThrowableItem;
 import doggytalents.api.inferface.Talent;
 import doggytalents.api.lib.Reference;
-import doggytalents.entity.ai.DogLocationManager;
-import doggytalents.entity.ai.EntityAIBegDog;
-import doggytalents.entity.ai.EntityAIBerserkerMode;
-import doggytalents.entity.ai.EntityAIDogFeed;
-import doggytalents.entity.ai.EntityAIDogWander;
-import doggytalents.entity.ai.EntityAIExtinguishFire;
-import doggytalents.entity.ai.EntityAIFetch;
-import doggytalents.entity.ai.EntityAIFetchReturn;
-import doggytalents.entity.ai.EntityAIFollowOwnerDog;
-import doggytalents.entity.ai.EntityAIHurtByTargetDog;
-import doggytalents.entity.ai.EntityAIIncapacitatedTargetDog;
-import doggytalents.entity.ai.EntityAIOwnerHurtByTargetDog;
-import doggytalents.entity.ai.EntityAIOwnerHurtTargetDog;
-import doggytalents.entity.ai.EntityAIShepherdDog;
+import doggytalents.entity.ai.*;
 import doggytalents.entity.features.CoordFeature;
 import doggytalents.entity.features.DogFeature;
 import doggytalents.entity.features.DogStats;
@@ -55,11 +42,17 @@ import doggytalents.entity.features.ModeFeature;
 import doggytalents.entity.features.TalentFeature;
 import doggytalents.helper.DogUtil;
 import doggytalents.helper.TalentHelper;
+import doggytalents.inventory.InventoryPackPuppy;
 import doggytalents.inventory.InventoryTreatBag;
 import doggytalents.item.ItemChewStick;
 import doggytalents.item.ItemFancyCollar;
 import doggytalents.lib.ConfigValues;
 import doggytalents.lib.GuiNames;
+import doggytalents.storage.DogRespawnStorage;
+import doggytalents.talent.PackPuppyTalent;
+import doggytalents.tileentity.TileEntityDogBed;
+import doggytalents.util.NBTUtil;
+import doggytalents.util.WorldUtil;
 import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityAgeable;
@@ -87,11 +80,13 @@ import net.minecraft.entity.projectile.EntityArrow;
 import net.minecraft.init.Items;
 import net.minecraft.init.MobEffects;
 import net.minecraft.init.SoundEvents;
+import net.minecraft.inventory.InventoryHelper;
 import net.minecraft.item.EnumDyeColor;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemFood;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.network.datasync.DataParameter;
 import net.minecraft.network.datasync.DataSerializers;
 import net.minecraft.network.datasync.EntityDataManager;
@@ -107,6 +102,7 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.world.DimensionType;
 import net.minecraft.world.World;
 import net.minecraft.world.storage.loot.LootTableList;
 import net.minecraftforge.common.util.Constants;
@@ -135,6 +131,7 @@ public class EntityDog extends IDogEntity {
     private static final DataParameter<Byte>                     GENDER_PARAM    = EntityDataManager.createKey(EntityDog.class, DataSerializers.BYTE);
     private static final DataParameter<Byte>                     MODE_PARAM      = EntityDataManager.createKey(EntityDog.class, DataSerializers.BYTE);
     private static final DataParameter<Optional<ITextComponent>>LAST_KNOWN_NAME = EntityDataManager.createKey(EntityDog.class, ModSerializers.OPTIONAL_TEXT_COMPONENT_SERIALIZER);
+    private static final DataParameter<Map<DimensionType, Optional<BlockPos>>> DOG_BED_LOC = EntityDataManager.createKey(EntityDog.class, ModSerializers.DOG_BED_LOC_SERIALIZER);
 
     public DogLocationManager locationManager;
 
@@ -168,6 +165,8 @@ public class EntityDog extends IDogEntity {
     private int prevHealingTick;
     private int regenerationTick;
     private int prevRegenerationTick;
+
+    protected BlockPos targetBlock;
 
     public EntityDog(World world) {
         super(world);
@@ -203,6 +202,7 @@ public class EntityDog extends IDogEntity {
         this.tasks.addTask(7, new EntityAIShepherdDog(this, 1.0D, 8F, entity -> !(entity instanceof EntityDog)));
         this.tasks.addTask(8, new EntityAIFetch(this, 1.0D, 32));
         this.tasks.addTask(10, new EntityAIFollowOwnerDog(this, 1.0D, 10.0F, 2.0F));
+        this.tasks.addTask(5, new EntityAIMoveToBlockGoal(this));
         //this.tasks.addTask(11, new EntityAISitOnBed(this, 0.8D));
 
         this.tasks.addTask(12, new EntityAIMate(this, 1.0D));
@@ -217,6 +217,18 @@ public class EntityDog extends IDogEntity {
         this.targetTasks.addTask(2, new EntityAIOwnerHurtTargetDog(this));
         this.targetTasks.addTask(3, new EntityAIHurtByTargetDog(this, true));
         this.targetTasks.addTask(4, new EntityAIBerserkerMode<>(this, EntityMob.class, false));
+    }
+
+    @SideOnly(Side.CLIENT)
+    protected void spawnParticles(EnumParticleTypes particleType)
+    {
+        for (int i = 0; i < 5; ++i)
+        {
+            double d0 = this.rand.nextGaussian() * 0.02D;
+            double d1 = this.rand.nextGaussian() * 0.02D;
+            double d2 = this.rand.nextGaussian() * 0.02D;
+            this.world.spawnParticle(particleType, this.posX + (double)(this.rand.nextFloat() * this.width * 2.0F) - (double)this.width, this.posY + 1.0D + (double)(this.rand.nextFloat() * this.height), this.posZ + (double)(this.rand.nextFloat() * this.width * 2.0F) - (double)this.width, d0, d1, d2);
+        }
     }
 
     @Override
@@ -238,6 +250,7 @@ public class EntityDog extends IDogEntity {
         this.dataManager.register(SIZE, (byte)3);
         this.dataManager.register(GENDER_PARAM, (byte)EnumGender.UNISEX.getIndex());
         this.dataManager.register(LAST_KNOWN_NAME, Optional.absent());
+        this.dataManager.register(DOG_BED_LOC, Collections.emptyMap());
     }
 
     @Override
@@ -315,6 +328,20 @@ public class EntityDog extends IDogEntity {
         compound.setInteger("capeData", this.getCapeData());
         compound.setInteger("dogSize", this.getDogSize());
         compound.setBoolean("hasBone", this.hasBone());
+        Map<DimensionType, Optional<BlockPos>> bedsData = this.dataManager.get(DOG_BED_LOC);
+
+        if (!bedsData.isEmpty()) {
+            NBTTagList bedsList = new NBTTagList();
+
+            for (Map.Entry<DimensionType, Optional<BlockPos>> entry : bedsData.entrySet()) {
+                NBTTagCompound bedNBT = new NBTTagCompound();
+                NBTUtil.putInt(bedNBT, "dim", entry.getKey().getId());
+                NBTUtil.putBlockPos(bedNBT, "pos", entry.getValue());
+                bedsList.appendTag(bedNBT);
+            }
+
+            compound.setTag("beds", bedsList);
+        }
         if(this.hasBone()) {
             compound.setTag("fetchItem", this.getBoneVariant().writeToNBT(new NBTTagCompound()));
         }
@@ -339,7 +366,7 @@ public class EntityDog extends IDogEntity {
         if(compound.hasKey("dogSize", 99)) this.setDogSize(compound.getInteger("dogSize"));
 
         if(compound.hasKey("fetchItem", Constants.NBT.TAG_COMPOUND)) this.setBoneVariant(new ItemStack(compound.getCompoundTag("fetchItem")));
-        if(compound.hasKey("lastKnownOwnerName", 8)) this.dataManager.set(LAST_KNOWN_NAME, Optional.of(ITextComponent.Serializer.jsonToComponent(compound.getString("lastKnownOwnerName"))));
+        if(compound.hasKey("lastKnownOwnerName", 8)) this.dataManager.set(LAST_KNOWN_NAME, Optional.fromNullable(ITextComponent.Serializer.jsonToComponent(compound.getString("lastKnownOwnerName"))));
 
         TalentHelper.readAdditional(this, compound);
 
@@ -1032,9 +1059,12 @@ public class EntityDog extends IDogEntity {
                     return false;
             }
 
+
             if (target instanceof EntityPlayer && owner instanceof EntityPlayer && !((EntityPlayer) owner).canAttackPlayer((EntityPlayer) target))
                 return false;
             else if (target == owner)
+                return false;
+            else if (target instanceof EntityPlayer && owner instanceof EntityPlayer && this.getDogFlag(2))
                 return false;
             else
                 return !(target instanceof AbstractHorse) || !((AbstractHorse) target).isTame();
@@ -1098,7 +1128,17 @@ public class EntityDog extends IDogEntity {
             this.timeDogIsShaking = 0.0F;
 
             if(!this.world.isRemote) {
+                if (this.TALENTS.getLevel(ModTalents.PACK_PUPPY) > 0) {
+                    InventoryPackPuppy inventory = this.getObject("packpuppyinventory", InventoryPackPuppy.class);
+                    InventoryHelper.dropInventoryItems(this.world, this, inventory);
+                    inventory.clear();
+                }
                 this.locationManager.remove(this);
+                DoggyTalents.LOGGER.debug("Removed dog location as they were removed from the world {}", this);
+                if(ConfigValues.DOG_RESPAWN) {
+                    DogRespawnStorage.get(this.world).putData(this);
+                    DoggyTalents.LOGGER.debug("Saved dog as they died {}", this);
+                }
 
                 if(this.world.getGameRules().getBoolean("showDeathMessages") && this.getOwner() instanceof EntityPlayerMP) {
                     this.getOwner().sendMessage(this.getCombatTracker().getDeathMessage());
@@ -1500,6 +1540,15 @@ public class EntityDog extends IDogEntity {
         this.dataManager.set(BOWL_POS, Optional.absent());
     }
 
+    public void setBedPos(DimensionType dim, @Nullable BlockPos pos) {
+        this.setBedPos(dim, WorldUtil.toImmutable(pos));
+    }
+
+    public void setBedPos(DimensionType dim, Optional<BlockPos> pos) {
+        Map<DimensionType, Optional<BlockPos>> bedLoc = new HashMap<>(this.dataManager.get(DOG_BED_LOC));
+        bedLoc.put(dim, pos);
+    }
+
     public void setBedPos(BlockPos pos) {
         this.dataManager.set(BED_POS, Optional.of(pos));
     }
@@ -1772,5 +1821,13 @@ public class EntityDog extends IDogEntity {
     @Override
     public <T> T getObject(String key, Class<T> type) {
         return (T) this.objects.get(key);
+    }
+
+    public void setTargetBlock(BlockPos pos) {
+        this.targetBlock = pos;
+    }
+
+    public BlockPos getTargetBlock() {
+        return this.targetBlock;
     }
 }

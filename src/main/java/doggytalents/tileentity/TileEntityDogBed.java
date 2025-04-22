@@ -2,15 +2,24 @@ package doggytalents.tileentity;
 
 import java.util.List;
 
+import doggytalents.DoggyTalents;
 import doggytalents.api.inferface.IBedMaterial;
 import doggytalents.block.DogBedRegistry;
 import doggytalents.entity.EntityDog;
+import doggytalents.entity.ai.DogLocationManager;
+import doggytalents.util.WorldUtil;
+import net.minecraft.entity.EntityLiving;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SPacketUpdateTileEntity;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ITickable;
 import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.text.ITextComponent;
+import doggytalents.util.NBTUtil;
+
+import javax.annotation.Nullable;
+import java.util.UUID;
 
 /**
  * @author ProPercivalalb
@@ -19,14 +28,25 @@ public class TileEntityDogBed extends TileEntity implements ITickable {
 
     private IBedMaterial casingId = IBedMaterial.NULL;
     private IBedMaterial beddingId = IBedMaterial.NULL;
+
+    private @Deprecated @Nullable EntityDog dog;
+    private @Nullable UUID dogUUID;
+
+    private @Nullable ITextComponent name;
+    private @Nullable ITextComponent ownerName;
     
-    public TileEntityDogBed() {}
-    
+    public TileEntityDogBed() {
+    }
+
     @Override
     public void readFromNBT(NBTTagCompound tag) {
         super.readFromNBT(tag);
         this.casingId = DogBedRegistry.CASINGS.get(tag.getString("casingId"));
         this.beddingId = DogBedRegistry.BEDDINGS.get(tag.getString("beddingId"));
+
+        this.dogUUID = NBTUtil.getUniqueId(tag,"ownerId");
+        this.name = NBTUtil.getTextComponent(tag,"name");
+        this.ownerName = NBTUtil.getTextComponent(tag,"ownerName");
     }
 
     @Override
@@ -34,6 +54,10 @@ public class TileEntityDogBed extends TileEntity implements ITickable {
         super.writeToNBT(tag);
         tag.setString("casingId", this.casingId != null ? this.casingId.getSaveId() : "missing");
         tag.setString("beddingId", this.beddingId != null ? this.beddingId.getSaveId() : "missing");
+
+        NBTUtil.putUniqueId(tag,"ownerId", this.dogUUID);
+        NBTUtil.putTextComponent(tag,"name", this.name);
+        NBTUtil.putTextComponent(tag,"ownerName", this.ownerName);
         return tag;
     }
     
@@ -94,5 +118,72 @@ public class TileEntityDogBed extends TileEntity implements ITickable {
     
     public IBedMaterial getBeddingId() {
         return this.beddingId;
+    }
+
+    public void setOwner(@Nullable EntityDog owner) {
+        this.setOwner(owner == null ? null : owner.getUniqueID());
+        this.ownerName = owner == null ? null : owner.getDisplayName();
+
+        this.dog = owner;
+
+    }
+
+    public void setOwner(@Nullable UUID owner) {
+        this.dog = null;
+        this.dogUUID = owner;
+
+        this.markDirty();
+
+        DoggyTalents.LOGGER.debug("Set bed owner to {}", owner);
+    }
+
+    @Nullable
+    public UUID getOwnerUUID() {
+        return this.dogUUID;
+    }
+
+    @Nullable
+    public EntityDog getOwner() {
+        return WorldUtil.getCachedEntity(this.world, EntityDog.class, this.dog, this.dogUUID);
+    }
+
+    @Nullable
+    public ITextComponent getBedName() {
+        return this.name;
+    }
+
+    @Nullable
+    public ITextComponent getOwnerName() {
+        if (this.dogUUID == null || this.world == null) {
+            return null;
+        }
+
+        List<DogLocationManager.DogLocation> locList = DogLocationManager
+                .getHandler(this.world)
+                .getAll(loc -> loc.getEntityId().equals(this.dogUUID));
+
+        if (!locList.isEmpty()) {
+            DogLocationManager.DogLocation locData = locList.get(0);
+            ITextComponent text = locData.getName(this.world);
+            if (text != null) {
+                this.ownerName = text;
+            }
+        }
+
+        return this.ownerName;
+    }
+
+    public boolean shouldDisplayName(EntityLiving camera) {
+        return true;
+    }
+
+    public void setBedName(@Nullable ITextComponent nameIn) {
+        this.name = nameIn;
+        this.markDirty();
+    }
+
+    public void setOwnerName(@Nullable ITextComponent nameIn) {
+        this.ownerName = nameIn;
+        this.markDirty();
     }
 }

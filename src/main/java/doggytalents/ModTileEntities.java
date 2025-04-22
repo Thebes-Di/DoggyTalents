@@ -11,7 +11,7 @@ import net.minecraftforge.fml.common.registry.GameRegistry.ObjectHolder;
 public class ModTileEntities {
 
     public static class Registration {
-        
+
         public static void registerTileEntities() {
             DoggyTalents.LOGGER.debug("Registering TileEnities");
             GameRegistry.registerTileEntity(TileEntityDogBed.class, ResourceLib.get("dog_bed"));

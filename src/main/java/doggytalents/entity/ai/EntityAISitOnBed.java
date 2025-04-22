@@ -56,7 +56,7 @@ public class EntityAISitOnBed extends EntityAIBase {
         
         this.dog.getAISit().setSitting(false);
     }
-    
+
     @Override
     public void resetTask() {
         super.resetTask();

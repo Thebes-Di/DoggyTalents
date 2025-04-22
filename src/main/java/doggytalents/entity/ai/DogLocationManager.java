@@ -229,6 +229,10 @@ public class DogLocationManager extends WorldSavedData {
             }
         }
 
+        public UUID getEntityId() {
+            return this.entityId;
+        }
+
         @Override
         public boolean equals(Object obj) {
             if (!(obj instanceof DogLocation)) return false;
@@ -237,11 +241,6 @@ public class DogLocationManager extends WorldSavedData {
 
             return this.entityId != null && other.entityId != null && this.entityId.equals(other.entityId);
         }
-
-        /*@Override
-        public int hashCode() {
-            return this.entityId;
-        }*/
 
         @Override
         public String toString() {

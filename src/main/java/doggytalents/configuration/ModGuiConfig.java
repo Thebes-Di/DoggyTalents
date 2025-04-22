@@ -77,10 +77,44 @@ public class ModGuiConfig extends GuiConfig {
         protected GuiScreen buildChildScreen() {
 
             List<IConfigElement> list = new ArrayList<IConfigElement>();
+            list.add(new DummyCategoryElement("roarSettings", "modgui.config.roarSettings", DTRoarSetEntry.class));
+            list.add(new DummyCategoryElement("rescueSettings", "modgui.config.rescueSettings", DTRescueSetEntry.class));
             list.addAll((new ConfigElement(ConfigurationHandler.CONFIG.getCategory(ConfigurationHandler.CATEGORY_TALENT))).getChildElements());
             return new GuiConfig(this.owningScreen, list, this.owningScreen.modID, ConfigurationHandler.CATEGORY_TALENT, this.configElement.requiresWorldRestart() ||
                     this.owningScreen.allRequireWorldRestart, this.configElement.requiresMcRestart() ||
                     this.owningScreen.allRequireMcRestart, I18n.format("modgui.config.talents"), I18n.format("modgui.config.talents.tooltip"));
+        }
+    }
+
+    public static class DTRoarSetEntry extends CategoryEntry {
+        public DTRoarSetEntry(GuiConfig owningScreen, GuiConfigEntries owningEntryList, IConfigElement prop) {
+            super(owningScreen, owningEntryList, prop);
+        }
+
+        @Override
+        protected GuiScreen buildChildScreen() {
+
+            List<IConfigElement> list = new ArrayList<IConfigElement>();
+            list.addAll((new ConfigElement(ConfigurationHandler.CONFIG.getCategory(ConfigurationHandler.CATEGORY_ROARING_GALE_SETTING))).getChildElements());
+            return new GuiConfig(this.owningScreen, list, this.owningScreen.modID, ConfigurationHandler.CATEGORY_ROARING_GALE_SETTING, this.configElement.requiresWorldRestart() ||
+                    this.owningScreen.allRequireWorldRestart, this.configElement.requiresMcRestart() ||
+                    this.owningScreen.allRequireMcRestart, I18n.format("modgui.config.roarSettings"), I18n.format("modgui.config.roarSettings.tooltip"));
+        }
+    }
+
+    public static class DTRescueSetEntry extends CategoryEntry {
+        public DTRescueSetEntry(GuiConfig owningScreen, GuiConfigEntries owningEntryList, IConfigElement prop) {
+            super(owningScreen, owningEntryList, prop);
+        }
+
+        @Override
+        protected GuiScreen buildChildScreen() {
+
+            List<IConfigElement> list = new ArrayList<IConfigElement>();
+            list.addAll((new ConfigElement(ConfigurationHandler.CONFIG.getCategory(ConfigurationHandler.CATEGORY_RESCUE_DOG_SETTING))).getChildElements());
+            return new GuiConfig(this.owningScreen, list, this.owningScreen.modID, ConfigurationHandler.CATEGORY_RESCUE_DOG_SETTING, this.configElement.requiresWorldRestart() ||
+                    this.owningScreen.allRequireWorldRestart, this.configElement.requiresMcRestart() ||
+                    this.owningScreen.allRequireMcRestart, I18n.format("modgui.config.rescueSettings"), I18n.format("modgui.config.rescueSettings.tooltip"));
         }
     }
 

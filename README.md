@@ -1,36 +1,19 @@
-Doggy Talents [![Curseforge](http://cf.way2muchnoise.eu/full_doggy-talents_downloads.svg)](https://minecraft.curseforge.com/projects/doggy-talents) [![Curseforge](http://cf.way2muchnoise.eu/versions/For%20MC_doggy-talents_all.svg)](https://minecraft.curseforge.com/projects/doggy-talents)
-===========
+## TemplateDevEnv
 
-<p align="center"><img src="https://github.com/ProPercivalalb/DoggyTalents/blob/master/images/logo.PNG"></p>
-<p align="center">A day dogs would not drown!</p>
+Template workspace for modding Minecraft 1.12.2. Licensed under MIT, it is made for public use.
 
-**Doggy Talents** is a **Minecraft Forge mod** that adds **brand new wolf AI and adds special abilities that your dog can learn!**
+This template runs on Java 21! Currently utilizies **Gradle 8.10.1** + **[RetroFuturaGradle](https://github.com/GTNewHorizons/RetroFuturaGradle) 1.4.1** + **Forge 14.23.5.2847**.
 
------------------
+With **coremod and mixin support** that is easy to configure.
 
-### Installation Instructions (Only for the new launchers)
+### Instructions:
 
-#### Client
-- Make sure you have the new Minecraft launcher and have run it at least once.
-- Then download a Minecraft Forge from the offical site [link](https://files.minecraftforge.net/).
-- Run the Installer jar and select the 'Install client' option and click OK. Minecraft Forge should now be installed!
-- Now open up the launcher and in the profile selector select 'Forge', login and run Minecraft (This may take a while).
-- Close Minecraft once it is open and find you Minecraft installation directory (PC : %appadata%/.minecraft, MAC : minecraft folder)
-- In the .minecraft folder, there will be a new folder called 'mods'
-  - If you want to, you can create a folder named with the version of Minecraft your running within the mods folder.
-- Download the mod from [here](https://mods.curse.com/mc-mods/minecraft/271050-doggy-talents), then drag n' drop the mod into the mods folder (or in the version folder you created).
-- Run Minecraft and enjoy!
+1. Click `use this template` at the top.
+2. Clone the repository that you have created with this template to your local machine.
+3. Make sure IDEA is using Java 21 for Gradle before you sync the project. Verify this by going to IDEA's `Settings > Build, Execution, Deployment > Build Tools > Gradle > Gradle JVM`.
+4. Open the project folder in IDEA. When prompted, click "Load Gradle Project" as it detects the `build.gradle`, if you weren't prompted, right-click the project's `build.gradle` in IDEA, select `Link Gradle Project`, after completion, hit `Refresh All` in the gradle tab on the right.
+5. Run gradle tasks such as `runClient` and `runServer` in the IDEA gradle tab, or use the auto-imported run configurations like `1. Run Client`.
 
-#### Server
-- Then download a Minecraft Forge from the offical site [link](https://files.minecraftforge.net/).
-- Once you have either the jar or exe installation of Minecraft Forge downloaded, open it up.
-- Run the Installer jar and select the 'Install server' option and click OK. Minecraft Forge should now be installed with a new folder and files: `libraries` folder, `minecraft_server.####.jar`, and `forge-####-######.jar`
-- Now double click the forge jar and let it run, the console should tell you to accept Mojang's EULA
-- At this point, open the eula.txt file that was generated the first time, set false to true, then save and close the file.
-- Run the forge jar once again, let it setup until it says done in the console, then close it. More files and folders should have appeared.
-- Download the mod from [here](https://mods.curse.com/mc-mods/minecraft/271050-doggy-talents), then drag n' drop the mod into the mods folder created by the server.
-- Run the server and enjoy!
+### Mixins:
 
------------------
-
-Want to know more about the mod? Take a gander at the [wiki](https://github.com/ProPercivalalb/DoggyTalents/wiki)!
+- When writing Mixins on IntelliJ, it is advisable to use latest [MinecraftDev Fork for RetroFuturaGradle](https://github.com/eigenraven/MinecraftDev/releases).

@@ -9,6 +9,7 @@ import doggytalents.api.feature.EnumMode;
 import doggytalents.entity.EntityDog;
 import doggytalents.entity.EntityDoggyBeam;
 import doggytalents.helper.DogUtil;
+import doggytalents.lib.ConfigValues;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.monster.IMob;
@@ -24,12 +25,16 @@ import net.minecraft.util.DamageSource;
 import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.SoundCategory;
+import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraft.world.World;
 
+import static doggytalents.talent.RoaringGaleTalent.getRoarCost;
+import static net.minecraft.util.DamageSource.causeIndirectDamage;
+
 public class ItemWhistle extends ItemDT {
-    
+
     public ItemWhistle() {
         super();
         this.setMaxStackSize(1);
@@ -141,46 +146,65 @@ public class ItemWhistle extends ItemDT {
                     List<EntityDog> roarDogs = dogsList.stream().filter(dog -> dog.TALENTS.getLevel(ModTalents.ROARING_GALE) > 0).collect(Collectors.toList());
                     if(roarDogs.isEmpty()) {
                         player.sendStatusMessage(new TextComponentTranslation("talent.doggytalents.roaring_gale.level"), true);
-                    } else {
+                    }
+                    else {
                         List<EntityDog> cdDogs = roarDogs.stream().filter(dog -> ((int)dog.objects.get("roarcooldown")) == 0).collect(Collectors.toList());
                         if(cdDogs.isEmpty()) {
                             player.sendStatusMessage(new TextComponentTranslation("talent.doggytalents.roaring_gale.cooldown"), true);
-                        } else {
-                            for(EntityDog dog : cdDogs) {
-                                int level = dog.TALENTS.getLevel(ModTalents.ROARING_GALE);
-                                
-                                int roarCooldown = level == 5 ? 60 : 100;
-                                
-                                byte damage = (byte)(level > 4 ? level * 2 : level);
-                                
-                                /**
-                                 * If level = 1, set duration to  20 ticks (1 second); level = 2, set duration to 24 ticks (1.2 seconds)
-                                 * If level = 3, set duration to 36 ticks (1.8 seconds); If level = 4, set duration to 48 ticks (2.4 seconds)
-                                 * If level = max (5), set duration to 70 ticks (3.5 seconds); 
-                                 * */
-                                byte effectDuration = (byte)(level > 4 ? level * 14 : level * (level == 1 ? 20 : 12));
-                                byte knockback = (byte)level;
-                                
-                                boolean hit = false;
-                                List<EntityLivingBase> list = dog.world.<EntityLivingBase>getEntitiesWithinAABB(EntityLiving.class, dog.getEntityBoundingBox().grow(level * 4, 4D, level * 4).grow(0.0D, (double) dog.world.getHeight(), 0.0D));
-                                for(EntityLivingBase mob : list) {
-                                    if(mob instanceof IMob) {
-                                        hit = true;
-                                        mob.attackEntityFrom(DamageSource.GENERIC, damage);
-                                        mob.addPotionEffect(new PotionEffect(MobEffects.SLOWNESS, effectDuration, 127, false, false));
-                                        mob.addPotionEffect(new PotionEffect(MobEffects.GLOWING, effectDuration, 1, false, false));
-                                        mob.addVelocity(MathHelper.sin(mob.rotationYaw * (float) Math.PI / 180.0F) * knockback * 0.5F, 0.1D, -MathHelper.cos(mob.rotationYaw * (float) Math.PI / 180.0F) * knockback * 0.5F);
+                        }
+                        else {
+                            List<EntityDog> hungDogs = cdDogs.stream().filter(dog -> dog.getHungerFeature().getDogHunger() > getRoarCost(dog)).collect(Collectors.toList());
+                            if (hungDogs.isEmpty()){
+                                player.sendStatusMessage(new TextComponentTranslation("talent.doggytalents.roaring_gale.hunger"), true);
+                            }
+                            else {
+                                for (EntityDog dog : hungDogs) {
+                                    int level = dog.TALENTS.getLevel(ModTalents.ROARING_GALE);
+
+                                    int roarCooldown = level == 5 ? ConfigValues.TALENT_ROAR_COOLDOWN_LEVEL_5 : ConfigValues.TALENT_ROAR_COOLDOWN;
+
+                                    byte damage = (byte) (level > 4 ? level * ConfigValues.TALENT_ROAR_DAMAGE * ConfigValues.TALENT_ROAR_DAMAGE_LEVEL_5_MULTIPLIER : level * ConfigValues.TALENT_ROAR_DAMAGE);
+
+                                    /**
+                                     * If level = 1, set duration to  20 ticks (1 second); level = 2, set duration to 24 ticks (1.2 seconds)
+                                     * If level = 3, set duration to 36 ticks (1.8 seconds); If level = 4, set duration to 48 ticks (2.4 seconds)
+                                     * If level = max (5), set duration to 70 ticks (3.5 seconds);
+                                     * */
+                                    byte effectDuration = (byte) (level > 4 ? ConfigValues.TALENT_ROAR_EFFECT_DURATION_LEVEL_UP_5 : level * (level == 1 ? ConfigValues.TALENT_ROAR_EFFECT_DURATION_BASE : ConfigValues.TALENT_ROAR_EFFECT_DURATION_LEVEL_UP));
+                                    byte knockback = (byte) level;
+
+                                    boolean hit = false;
+                                    AxisAlignedBB axisAlignedBB;
+                                    if (ConfigValues.TALENT_ROAR_UNLIMITED_HIGH) {
+                                        axisAlignedBB = dog.getEntityBoundingBox().grow(level * ConfigValues.TALENT_ROAR_RANGE, 4D, level * ConfigValues.TALENT_ROAR_RANGE).grow(0.0D, (double) dog.world.getHeight(), 0.0D);
+                                    } else {
+                                        axisAlignedBB = dog.getEntityBoundingBox().grow(level * ConfigValues.TALENT_ROAR_RANGE, level * ConfigValues.TALENT_ROAR_RANGE, level * ConfigValues.TALENT_ROAR_RANGE);
                                     }
+                                    List<EntityLivingBase> list = dog.world.<EntityLivingBase>getEntitiesWithinAABB(EntityLiving.class, axisAlignedBB);
+                                    for (EntityLivingBase mob : list) {
+                                        if (mob instanceof IMob) {
+                                            hit = true;
+                                            if (!ConfigValues.TALENT_ROAR_BYPASSES_ARMOR) {
+                                                mob.attackEntityFrom(causeIndirectDamage(dog, mob), damage);
+                                            } else {
+                                                mob.attackEntityFrom(DamageSource.GENERIC, damage);
+                                            }
+                                            mob.addPotionEffect(new PotionEffect(MobEffects.SLOWNESS, effectDuration, 127, false, false));
+                                            mob.addPotionEffect(new PotionEffect(MobEffects.GLOWING, effectDuration, 1, false, false));
+                                            mob.addVelocity(MathHelper.sin(mob.rotationYaw * (float) Math.PI / 180.0F) * knockback * 0.5F, 0.1D, -MathHelper.cos(mob.rotationYaw * (float) Math.PI / 180.0F) * knockback * 0.5F);
+                                        }
+                                    }
+
+                                    if (hit) {
+                                        dog.playSound(SoundEvents.ENTITY_WOLF_GROWL, 0.7F, 1.0F);
+                                    } else {
+                                        dog.playSound(SoundEvents.ENTITY_WOLF_AMBIENT, 1F, 1.2F);
+                                        roarCooldown /= 2;
+                                    }
+
+                                    dog.objects.put("roarcooldown", roarCooldown);
+                                    dog.getHungerFeature().setDogHunger(dog.getHungerFeature().getDogHunger() - getRoarCost(dog));
                                 }
-                                
-                                if(hit) {
-                                    dog.playSound(SoundEvents.ENTITY_WOLF_GROWL, 0.7F, 1.0F);
-                                } else {
-                                    dog.playSound(SoundEvents.ENTITY_WOLF_AMBIENT, 1F, 1.2F);
-                                    roarCooldown /= 2;
-                                }
-                                
-                                dog.objects.put("roarcooldown", roarCooldown);
                             }
                         }
                     }

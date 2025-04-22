@@ -6,10 +6,13 @@ import com.google.common.base.Optional;
 
 import doggytalents.api.inferface.Talent;
 import doggytalents.api.lib.Reference;
+import doggytalents.serializers.BedLocationsSerializer;
 import doggytalents.serializers.OptionalTextComponentSerializer;
 import doggytalents.serializers.TalentListSerializer;
 import net.minecraft.network.datasync.DataSerializer;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.ITextComponent;
+import net.minecraft.world.DimensionType;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -25,6 +28,7 @@ public class ModSerializers {
     
     public static DataSerializer<Map<Talent, Integer>> TALENT_LEVEL_SERIALIZER = new TalentListSerializer();
     public static DataSerializer<Optional<ITextComponent>> OPTIONAL_TEXT_COMPONENT_SERIALIZER = new OptionalTextComponentSerializer();
+    public static DataSerializer<Map<DimensionType, Optional<BlockPos>>> DOG_BED_LOC_SERIALIZER = new BedLocationsSerializer();
     
     @Mod.EventBusSubscriber(modid = Reference.MOD_ID)
     public static class Registration {
@@ -35,6 +39,7 @@ public class ModSerializers {
             DoggyTalents.LOGGER.debug("Registering Serializers");
             serializerRegistry.register(new DataSerializerEntry(TALENT_LEVEL_SERIALIZER).setRegistryName(Reference.MOD_ID, "talent_level_list"));
             serializerRegistry.register(new DataSerializerEntry(OPTIONAL_TEXT_COMPONENT_SERIALIZER).setRegistryName(Reference.MOD_ID, "optional_text_component"));
+            serializerRegistry.register(new DataSerializerEntry(DOG_BED_LOC_SERIALIZER).setRegistryName(Reference.MOD_ID, "Bed_Locations"));
             
             DoggyTalents.LOGGER.debug("Finished Registering Serializers");
         }
